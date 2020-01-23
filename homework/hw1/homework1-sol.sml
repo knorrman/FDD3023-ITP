@@ -81,7 +81,6 @@ val tst_all =
   tst_kRevAppend andalso
   tst_kRev andalso
   tst_kAppend andalso
-  tst_k2Append andalso
   tst_kExists andalso
   tst_replicate
 
