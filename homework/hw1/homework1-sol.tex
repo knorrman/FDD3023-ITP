@@ -1,0 +1,112 @@
+\documentclass[a4paper, 11pt]{article}
+\topmargin=-5mm
+\evensidemargin=0cm
+\oddsidemargin=0cm
+\textwidth=16cm
+\textheight=22cm
+\addtolength{\headheight}{1.6pt}
+
+\usepackage{amsmath}
+\usepackage{enumitem}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily,language=ML}
+\newcommand{\sml}[1]{\text{\texttt{#1}}}
+
+\begin{document}
+\title{FDD3023 ITP Homework 1}
+\author{Karl Norrman, knorrman@kth.se}
+\maketitle
+%
+
+This is typeset in latex to make the proofs a little easier to read.
+%
+The list datatype \hbox{is defined as}
+%
+\begin{lstlisting}
+datatype 'a kList = kNil | kCons of 'a  * 'a kList
+\end{lstlisting}
+%
+
+%------------------------------------------------------------------------ sect
+\section{\texttt{kAppend}}
+Prove that $\forall \mathtt{l}.\enskip$ \texttt{kAppend l kNil = l}.
+%
+The definition of \sml{kAppend} is
+%
+\vspace{10pt}
+\begin{lstlisting}
+fun kAppend kNil xs = xs
+  | kAppend (kCons (x, xs)) ys = kCons (x, kAppend xs ys)
+\end{lstlisting}
+\vspace{10pt}
+%
+Proof by structural induction on second argument \sml{xs}.
+%
+
+\vspace{10pt}
+\noindent Base case \sml{xs = kNil}:
+\begin{enumerate}
+\item \sml{kAppend kNil kNil = kNil} \hfill [by \sml{kAppend}]
+\item qed -- base case
+\end{enumerate}
+%
+
+\noindent Induction step. Assume ind-hypothesis: \sml{kAppend xs kNil = xs}.
+%
+Must show that $\forall$ \sml{x} \sml{xs}. \enskip
+\sml{kAppend (kCons (x, xs)) kNil = kCons (x, xs)}.
+%
+\begin{enumerate}[resume]
+    \item \sml{kAppend (kCons (x, xs)) kNil = kCons (x, (kAppend xs kNil))}
+        \hfill  [by \sml{kAppend}]
+    \item \sml{kCons (x, (kAppend xs kNil)) = kCons (x, xs)}
+        \hfill [by ind-hypothesis]
+    \item qed -- ind-step
+\end{enumerate}
+%
+
+\section{\texttt{kAppend} and \texttt{kLength} interaction}
+Prove that $\forall$ \sml{l1 l2}. \sml{length (append l1 l2) =
+length l1 + length l2}.
+%
+Definitions of \sml{kAppend} and \sml{kLength} is as follows:
+\vspace{10pt}
+\begin{lstlisting}
+fun kAppend kNil xs = xs
+  | kAppend (kCons (x, xs)) ys = kCons (x, kAppend xs ys)
+
+fun kLength kNil = 0
+  | kLength (kCons (x, xs)) = 1 + kLength xs
+\end{lstlisting}
+\vspace{10pt}
+
+\noindent Proof by structural induction on first argument \sml{l1}.
+%
+
+\vspace{10pt}
+\noindent Base case \sml{l1 = kNil}:
+\begin{enumerate}
+    \item \sml{kLength (kAppend kNil l2) = kLength l2} \hfill [by \sml{kAppend}]
+    \item \sml{kLength l2 = 0 + kLength l2} \hfill [by arithmetic]
+    \item \sml{0 + kLength l2 = kLength kNil + kLength l2} \hfill [by \sml{kLength}]
+    \item qed -- base case
+\end{enumerate}
+
+\noindent Induction step. Assume ind-hypothesis:
+\sml{kLength (kAppend xs l2) = kLength xs + kLength l2}.
+Must show that
+\sml{kLength (kAppend (kCons (x, xs)) l2) = kLength (kCons (x, xs)) + kLength l2}.
+
+\begin{enumerate}[resume]
+    \item \sml{kLength (kAppend (kCons(x, xs)) l2) = kLength kCons(x, (kAppend
+        (xs, l2)))} \hbox{[by \sml{kAppend}]}
+    \item \sml{kLength kCons(x, (kAppend (xs, l2))) = 1 + kLength (kAppend (xs, l2))}
+        \hbox{[by kLength]}
+    \item \sml{1 + kLength (kAppend (xs, l2)) = 1 + kLength xs + kLength l2}
+        \hbox{[by ind-hypothesis]}
+    \item \sml{1 + kLength xs + kLength l2 = kLength (kCons (x, xs)) + kLength l2}
+        \hbox{[by kLength]}
+    \item qed -- ind-step
+\end{enumerate}
+
+\end{document}
