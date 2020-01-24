@@ -85,7 +85,7 @@ val tst_all =
   tst_replicate
 
 
-(* -- Prove that forall xs. kAppend l [] = l
+(* -- Prove that forall l. kAppend l [] = l
  *
  * Definition of kAppend (renamed arguments for clarity):
  *   fun kAppend kNil xs = xs
