@@ -1,5 +1,5 @@
 (* ITP course 2020 - Homework 1
- * Karl Norrman, 2020-01-23
+ * Karl Norrman, 2020-01-24
  *)
 
 (*
@@ -85,51 +85,6 @@ val tst_all =
   tst_replicate
 
 
-(* -- Prove that forall l. kAppend l [] = l
- *
- * Definition of kAppend (renamed arguments for clarity):
- *   fun kAppend kNil xs = xs
- *     | kAppend (kCons (x, xs)) ys = kCons (x, kAppend xs ys)
- *
- * Proof by structural induction on second argument xs:
- * Base case xs = kNil:
- *      1. kAppend kNil kNil = kNil                                     [by def of kAppend]
- *      2. qed - base case
- *
- * Indudtion step. Assume ind-hypothesis: kAppend xs kNil = xs
- * Must show that kAppend (kCons (x, xs)) kNil = kCons (x, xs)
- *      3. kAppend (kCons (x, xs)) kNil = kCons (x, (kAppend xs kNil))  [by def of kAppend]
- *      4. kCons (x, (kAppend xs kNil)) = kCons (x, xs)                 [by ind-hypothesis]
- *      5. qed - ind-step
- * 6. qed
- *)
-
-(* -- Prove that forall l1 l2. length (append l1 l2) = length l1 + length l2.
- * Definitions of kAppend and kLength:
- *   fun kAppend kNil xs = xs
- *     | kAppend (kCons (x, xs)) ys = kCons (x, kAppend xs ys)
- *
- *   fun kLength kNil = 0
- *     | kLength (kCons (x, xs)) = 1 + kLength xs
- *
- * Proof by structural induction on first argument l1:
- * Base case l1 = kNil:
- *      1. kLength (kAppend kNil l2) = kLength (l2)                     [by def of kAppend]
- *      2. kLength (l2) = 0 + kLength l2                                [by arithmetic]
- *      3. 0 + kLength l2 = kLength kNil + kLength l2                   [by def of kLength]
- *      5. qed - base case
- *
- * Indudtion step. Assume ind-hypothesis:
- *      kLength (kAppend xs l2) = kLength xs + kLength l2.
- * Must show that kLength (kAppend (kCons (x, xs)) l2) = kLength (kCons (x, xs)) + kLength l2.
- *      6. kLength (kAppend (kCons(x, xs)) l2) = kLength kCons(x, (kAppend (xs, l2))) [by def of kAppend]
- *      7. kLength kCons(x, (kAppend (xs, l2))) = 1 + kLength (kAppend (xs, l2))      [by def of kLength]
- *      8. 1 + kLength (kAppend (xs, l2)) = 1 + kLength xs + kLength l2               [by ind-hypothesis]
- *      9. 1 + kLength xs + kLength l2 = kLength (kCons (x, xs)) + kLength l2         [by def of kLength]
- *     10. qed - ind-step
- * 11. qed
- *)
-
 
 (* I had heard of the relation between revAppend, append and rev before, and
  * therefore rev is already implemented in this style.  I here give a version of
@@ -204,7 +159,7 @@ val tst_make_change =
   make_change [1, 2, 1, 2] 3 = [[1, 2], [1, 2], [2, 1], [1, 2]]
 
 
-(* Some properties of make change:
+(* Some properties of make change (that should be true):
  *
  * fun sum xs = foldl (op +) 0 xs
  *
@@ -214,6 +169,3 @@ val tst_make_change =
  * forall coins amount.
  *      length (make_change coins amount) <= pow (2, (length coins))
  *)
-
-
-
