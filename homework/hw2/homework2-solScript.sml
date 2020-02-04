@@ -147,6 +147,150 @@ val thm_32b = (* !A B. (A /\ ~A) /\ B <=> F *)
       IMP_ANTISYM_RULE thm_fwdDir thm_bwdDir |> GEN tm_b |> GEN tm_a
   end
 
-val _ = export_theory()
 
+(* 4 Writing Your Own Automation
+ * 4.1 Implications between Conjunctions
+ * Write a function show_big_conj_imp : term -> term -> thm that assumes that
+ * both terms are conjunctions and tries to prove that the first one implies
+ * the second one.  It should be clever enough to handle T and F.
+ *)
+
+(*  UNUSED
+(* Destructs a term of conjunctions into a list of conjucts.
+ *)
+fun conjToList tm =
+  let fun tailrec tm xs =
+    if can dest_conj tm then
+      let val (t, ts) = dest_conj tm
+      in
+        if can dest_conj ts then
+            tailrec ts (t::xs)
+        else
+            rev (ts::t::xs)
+      end
+    else
+        failwith "conjToList - illegal operator"
+  in
+    tailrec tm []
+  end
+*)
+
+fun conjToRBTree tm =
+  let fun tailrec ctm rbt =
+    if term_size ctm = 0 then
+      rbt
+    else if is_conj ctm then
+      let val (t, ts) = dest_conj ctm
+      in
+        if (is_const ts)  orelse  (is_var ts) then
+            Redblackset.add (Redblackset.add (rbt, t), ts)
+        else
+            tailrec ts (Redblackset.add (rbt, t))
+      end
+    else
+        failwith "conjToRBTree - Term not a conjunction"
+  in
+    tailrec tm (Redblackset.empty Term.compare)
+  end
+
+(* Create map from atoms in conjuction to thms proving they are derivable
+ * from the conjunction
+ *)
+fun atomThms tm =
+  let recurse tmReminder rbMapThms =
+    if term_size tmReminder = 0 then
+      rbMapThms
+    else
+      if is_conj tmReminder then
+        let
+            val (conj1, conj2) =  dest_conj tmRenider
+            val e1 = (conj1, (tmReminder, ASSUME tmReminder |> CONJUNCT1))
+            val e2 = (conj2, (tmReminder, ASSUME tmReminder |> CONJUNCT2))
+        in
+            recurse conj2 (Redblackmap.insertList (rbMapThms, [e1, e2]))
+        end
+      else if is_const tmReminder then
+        let
+            val const =  dest_const tmRenider
+            val proof = ASSUME tmReminder |> CONJUNCT1 |> DISCH_ALL
+        in
+          recurse conj2 (Redblackmap.insert (rbMapThms, conj1, proof))
+      else
+        failwith "atomThms - non-conjunction found"
+
+
+      recurse tm (Redblackmap.mkDict Term.compare)
+
+fun conjToRBTree2 tm =
+  let fun tailrec ctm rbt =
+    if term_size ctm = 0 then
+        rbt
+    else if is_conj ctm then
+      let val (t, ts) = dest_conj ctm
+      in
+        if (is_const ts)  orelse  (is_var ts) then
+            Redblackset.add (Redblackset.add (rbt, t), ts)
+        else
+            tailrec ts (Redblackset.add (rbt, t))
+      end
+    else
+        failwith "conjToRBTree - Term not a conjunction"
+  in
+    tailrec tm (Redblackset.empty Term.compare)
+  end
+
+(*  UNUSED
+(* List equality functions are only helpers for the tests *)
+fun listEQ l1 l2 cmp =
+  List.all cmp (ListPair.zip (l1, l2))
+
+fun listEQTm l1 l2 =
+  listEQ l1 l2 (fn (x, y) => Term.compare (x, y) = EQUAL)
+
+val tst_listEQ =
+  listEQ [] [] (fn (x, y) => x = y) andalso
+  listEQ [1] [1] (fn (x, y) => x = y) andalso
+  (not (listEQ [1] [2] (fn (x, y) => x = y))) andalso
+  listEQ [1, 2, 3] [1, 2, 3] (fn (x, y) => x = y) andalso
+  (not (listEQ [1, 2, 3] [1, 2, 4] (fn (x, y) => x = y)))
+
+val tst_conjToList =
+  listEQTm (conjToList ``A1 /\ A2``) (mk_revAs 2) andalso
+  listEQTm (conjToList ``A1 /\ A2 /\ A3``) (mk_revAs 3) andalso
+  listEQTm (conjToList ``A1 /\ A2 /\ A3 /\ A4``) (mk_revAs 4)
+*)
+
+fun buildProof src_rbt trg_tm =
+  if (is_const trg_tm) then
+    if trg_tm = ``T`` then
+      
+
+
+
+fun show_big_conj_imp tm1 tm2 =
+  let
+    val tm1 = ``x0 /\ x1 /\ x2 /\ x3 /\ x4 /\ x5``
+    val tm2 = ``x0 /\ x2 /\ x4``  (* is sublist *)
+    val tm3 = ``x0 /\ x2 /\ x8``  (* is not sublist *)
+    val tm4 = ``x0 /\ x2 /\ F``   (* has False *)
+    val tm5 = ``x0 /\ x2 /\ T``   (* has True *)
+    val tma = ``x1:bool``
+    val tmb = ``x1 /\ x2``
+    val tm1_list = conjToList tm4
+    val tm2_list = conjToList tm2
+
+    fun hasFalse rbt = Redblackset.member (rbt, mk_const ("F", bool))
+    fun hasTrue rbt = Redblackset.member (rbt, mk_const ("T", bool))
+    val rbTm1 = conjToRBTree tm4
+    val rbTm2 = conjToRBTree tm2
+  in
+    hasFalse rbTm1
+    if Redblackset.
+      ASSUME (list_mk_conj tm1_list) |> 
+    else
+      list_mk_conj tm1_list
+  end
+
+
+val _ = export_theory()
 
