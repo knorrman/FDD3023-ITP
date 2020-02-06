@@ -6,6 +6,9 @@
  *
  * 1.4: FinalThm.sml, FinalTerm.sml etc seems to have changed names to
  * FinalThm-sig.sml etc.
+ *
+ * FEEDBACK: I will move the test code to a separate file once the solutions are
+ * approved.  (That was feedback I received on Homework 1)
  *)
 
 open HolKernel Parse boolLib bossLib
@@ -148,149 +151,193 @@ val thm_32b = (* !A B. (A /\ ~A) /\ B <=> F *)
   end
 
 
-(* 4 Writing Your Own Automation
- * 4.1 Implications between Conjunctions
- * Write a function show_big_conj_imp : term -> term -> thm that assumes that
- * both terms are conjunctions and tries to prove that the first one implies
- * the second one.  It should be clever enough to handle T and F.
+(*     4 Writing Your Own Automation
+ *     4.1 Implications between Conjunctions
+ *     Write a function show_big_conj_imp : term -> term -> thm that assumes that
+ *     both terms are conjunctions and tries to prove that the first one implies
+ *     the second one.  It should be clever enough to handle T and F.
+ *
+ * Note to self: It doesn't say in the description, but we assume there are
+ * no quantifiers in the terms.
  *)
-
-(*  UNUSED
-(* Destructs a term of conjunctions into a list of conjucts.
- *)
-fun conjToList tm =
-  let fun tailrec tm xs =
-    if can dest_conj tm then
-      let val (t, ts) = dest_conj tm
-      in
-        if can dest_conj ts then
-            tailrec ts (t::xs)
-        else
-            rev (ts::t::xs)
-      end
-    else
-        failwith "conjToList - illegal operator"
-  in
-    tailrec tm []
-  end
-*)
-
-fun conjToRBTree tm =
-  let fun tailrec ctm rbt =
-    if term_size ctm = 0 then
-      rbt
-    else if is_conj ctm then
-      let val (t, ts) = dest_conj ctm
-      in
-        if (is_const ts)  orelse  (is_var ts) then
-            Redblackset.add (Redblackset.add (rbt, t), ts)
-        else
-            tailrec ts (Redblackset.add (rbt, t))
-      end
-    else
-        failwith "conjToRBTree - Term not a conjunction"
-  in
-    tailrec tm (Redblackset.empty Term.compare)
-  end
 
 (* Create map from atoms in conjuction to thms proving they are derivable
  * from the conjunction
  *)
-fun atomThms tm =
-  let recurse tmReminder rbMapThms =
-    if term_size tmReminder = 0 then
-      rbMapThms
-    else
-      if is_conj tmReminder then
-        let
-            val (conj1, conj2) =  dest_conj tmRenider
-            val e1 = (conj1, (tmReminder, ASSUME tmReminder |> CONJUNCT1))
-            val e2 = (conj2, (tmReminder, ASSUME tmReminder |> CONJUNCT2))
+fun conjToThmMap tm =
+  let fun recurse ctm rbt =
+    let fun mapAdd m conclusion (proofStep, premise) =
+      case Redblackmap.peek (m, conclusion) of
+          SOME v => m
+        | NONE => Redblackmap.insert (m, conclusion, (proofStep, premise))
+    in
+      if term_size ctm < 2 then
+          failwith "conjToRBTree - Conjunctions require at least 2 operands"
+      else if is_conj ctm then
+        let val (t, ts) = dest_conj ctm
         in
-            recurse conj2 (Redblackmap.insertList (rbMapThms, [e1, e2]))
+          if (is_const ts)  orelse  (is_var ts) then
+            (mapAdd (mapAdd rbt ts (CONJUNCT2, ctm))
+                     t
+                     (CONJUNCT1, ctm))
+          else
+            recurse ts
+                    (mapAdd (mapAdd rbt ts (CONJUNCT2, ctm))
+                            t
+                            (CONJUNCT1, ctm))
         end
-      else if is_const tmReminder then
-        let
-            val const =  dest_const tmRenider
-            val proof = ASSUME tmReminder |> CONJUNCT1 |> DISCH_ALL
-        in
-          recurse conj2 (Redblackmap.insert (rbMapThms, conj1, proof))
       else
-        failwith "atomThms - non-conjunction found"
-
-
-      recurse tm (Redblackmap.mkDict Term.compare)
-
-fun conjToRBTree2 tm =
-  let fun tailrec ctm rbt =
-    if term_size ctm = 0 then
-        rbt
-    else if is_conj ctm then
-      let val (t, ts) = dest_conj ctm
-      in
-        if (is_const ts)  orelse  (is_var ts) then
-            Redblackset.add (Redblackset.add (rbt, t), ts)
-        else
-            tailrec ts (Redblackset.add (rbt, t))
-      end
-    else
-        failwith "conjToRBTree - Term not a conjunction"
+          failwith "conjToRBTree - Term not a conjunction"
+    end
   in
-    tailrec tm (Redblackset.empty Term.compare)
+    recurse tm (Redblackmap.mkDict Term.compare)
   end
 
-(*  UNUSED
-(* List equality functions are only helpers for the tests *)
-fun listEQ l1 l2 cmp =
-  List.all cmp (ListPair.zip (l1, l2))
+fun buildLitThm srcTm thmMap literal =
+    if Term.compare (literal, srcTm) = EQUAL
+    then
+        ASSUME literal
+    else case Redblackmap.peek (thmMap, literal) of
+        SOME (thmBuilder, premise) => thmBuilder (buildLitThm srcTm thmMap premise)
+      | NONE => failwith "buildLitThm - Implication does not hold"
 
-fun listEQTm l1 l2 =
-  listEQ l1 l2 (fn (x, y) => Term.compare (x, y) = EQUAL)
-
-val tst_listEQ =
-  listEQ [] [] (fn (x, y) => x = y) andalso
-  listEQ [1] [1] (fn (x, y) => x = y) andalso
-  (not (listEQ [1] [2] (fn (x, y) => x = y))) andalso
-  listEQ [1, 2, 3] [1, 2, 3] (fn (x, y) => x = y) andalso
-  (not (listEQ [1, 2, 3] [1, 2, 4] (fn (x, y) => x = y)))
-
-val tst_conjToList =
-  listEQTm (conjToList ``A1 /\ A2``) (mk_revAs 2) andalso
-  listEQTm (conjToList ``A1 /\ A2 /\ A3``) (mk_revAs 3) andalso
-  listEQTm (conjToList ``A1 /\ A2 /\ A3 /\ A4``) (mk_revAs 4)
-*)
-
-fun buildProof src_rbt trg_tm =
-  if (is_const trg_tm) then
-    if trg_tm = ``T`` then
-      
-
-
+fun buildConjThm srcTm thmMap trgTm =
+  if is_conj trgTm then
+    let val (t, ts) = dest_conj trgTm
+    in
+        CONJ (buildLitThm srcTm thmMap t) (buildConjThm srcTm thmMap ts)
+    end
+  else if (is_const trgTm)  orelse  (is_var trgTm) then
+        buildLitThm srcTm thmMap trgTm
+  else
+        failwith "buildConjThm - Term not a conjunction"
 
 fun show_big_conj_imp tm1 tm2 =
-  let
-    val tm1 = ``x0 /\ x1 /\ x2 /\ x3 /\ x4 /\ x5``
-    val tm2 = ``x0 /\ x2 /\ x4``  (* is sublist *)
-    val tm3 = ``x0 /\ x2 /\ x8``  (* is not sublist *)
-    val tm4 = ``x0 /\ x2 /\ F``   (* has False *)
-    val tm5 = ``x0 /\ x2 /\ T``   (* has True *)
-    val tma = ``x1:bool``
-    val tmb = ``x1 /\ x2``
-    val tm1_list = conjToList tm4
-    val tm2_list = conjToList tm2
+    buildConjThm tm1 (conjToThmMap tm1) tm2 |> DISCH_ALL
 
-    fun hasFalse rbt = Redblackset.member (rbt, mk_const ("F", bool))
-    fun hasTrue rbt = Redblackset.member (rbt, mk_const ("T", bool))
-    val rbTm1 = conjToRBTree tm4
-    val rbTm2 = conjToRBTree tm2
+val x01 = ``x0 /\ x1``
+val x02 = ``x0 /\ x2``
+val x12 = ``x1 /\ x2``
+val x02fa = ``x0 /\ fail``
+val x012 = ``x0 /\ x1 /\ x2``
+val x0123 = ``x0 /\ x1 /\ x2 /\ x3``
+
+Redblackmap.listItems (conjToThmMap x0x1)
+
+(* FIXME: Can't handle F and T properly yet *)
+val tst_show_big_conj_imp = (
+    show_big_conj_imp x01 x01;
+    show_big_conj_imp x012 x01;
+    show_big_conj_imp x012 x02;
+    show_big_conj_imp x0123 x012
+    )
+
+(*     4.2 Equivalences between Conjunctions
+ *     Use the function show_big_conj_imp to define a function
+ *     show_big_conj_eq : term -> term -> thm that tries to shows the equivalence
+ *     between the input terms. If both input terms are alpha-equivalent, it should
+ *     raise an UNCHANGED exception. If the equivalence cannot be proved, a
+ *     HOL_ERR exception should be raised.
+ *
+ * Note to self: Also here we assume that terms have no quantifiers. That makes
+ * the test for alpha-equivalence superfluous since all variables are free.
+ * Nontheless, we test for it just since the exercise asked for it.
+ *)
+fun show_big_conj_eq tm1 tm2 =
+  if (Term.aconv tm1 tm2) then raise Conv.UNCHANGED
+  else
+    IMP_ANTISYM_RULE (show_big_conj_imp tm1 tm2) (show_big_conj_imp tm2 tm1)
+
+val tst_show_big_conj_imp = (
+    show_big_conj_eq ``x /\ y`` ``y /\ x``;
+    show_big_conj_eq ``x /\ y /\ z`` ``y /\ z /\ x``
+    )
+
+(*     4.3 Duplicates in Conjunctions
+ *     Use the function show_big_conj_eq to implement a conversion
+ *     remove_dups_in_conj_CONV that replaces duplicate appearances of a term in a
+ *     large conjunction with T.  Given the term a /\ (b /\ a) /\ c /\ b /\ a
+ *     it should for example return
+ *         |- (a /\ (b /\ a) /\ c /\ b /\ a) = (a /\ (b /\ T) /\ c /\ T /\ T).
+ *     If no duplicates are found, UNCHANGED should be raised. If the input is not
+ *     of type bool, a HOL ERR should be raised.
+ *
+ * Note to self: I'm not using the show_big_conj_eq function, so I'm probably
+ * not providing the solution that was intended.
+ *)
+fun termToList tm =
+  let val l = strip_conj tm   (* strip_conj is a fantastic function... *)
   in
-    hasFalse rbTm1
-    if Redblackset.
-      ASSUME (list_mk_conj tm1_list) |> 
+    if exists (fn x => term_size x > 2) l then (* asm only lits have size < 3 *)
+        failwith "termToList - not a conjunction"
     else
-      list_mk_conj tm1_list
+      l
   end
 
+fun remove_dups_in_conj_CONV tm =
+  let fun conv (lit, (m, trg)) =
+          case (Redblackset.peek (m, lit)) of
+               SOME _ => (m, T::trg)
+             | NONE   => if Term.compare (lit, F) = EQUAL then
+                    (m, F::trg) (* If F gets inserted, any duplicates of it
+                                   will turn into T, which does not affect the
+                                   boolean value of the term or violate
+                                   the specification in the
+                                   exercise, but feels very strange.
+                                 *)
+                else
+                    (Redblackset.add (m, lit), lit::trg)
+      val srcList = termToList tm
+      val (m, l) = foldl conv (Redblackset.empty Term.compare, []) srcList
+      val trgTm = list_mk_conj (rev l)
+  in
+    if (Term.compare (trgTm, tm) = EQUAL) then raise Conv.UNCHANGED else trgTm
+  end
 
+val tst_remove_dups_in_conj_CONV = (
+    remove_dups_in_conj_CONV ``x/\y/\x/\y/\y``;
+    remove_dups_in_conj_CONV ``T/\x/\y/\x/\T/\y``;
+    remove_dups_in_conj_CONV ``x/\y/\F/\x/\F``;
+    remove_dups_in_conj_CONV ``x/\y/\F/\T/\F``  (* UNCHANGED *)
+    )
+
+(*     4.4 Contradictions in Conjunctions
+ *     Use the function show_big_conj_eq to implement a conversion
+ *     find_contr_in_conj_CONV that searches for terms and their negations in a
+ *     large conjunction. If such contradictions are found, the term should be
+ *     converted to F. Given the term a /\ (b /\ ~a) /\ c it should for
+ *     example return
+ *               |- (a /\ (b /\ ~a) /\ c) = F.
+ *     If no contradictions are found, UNCHANGED should be raised. If the
+ *     input is not of type bool, a HOL ERR should be raised.
+ *
+ * FEEDBACK: the specification is unclear. Should the function convert a term
+ * into another term (as described in the text) or should the function prove a
+ * and return a theorem that the term
+ * is equivalent to false as the example shows?
+ * Suggestion: provide typing information for the function we should write.
+ *
+ * Note to self: I chose to do the former interpretation.
+ * Note to self: Same as previous: I probably don't implement the intended
+ * solution since I don't use the show_big_onj_eq function.
+ *)
+fun find_cont_in_conj_CONV tm =
+  let val tmList = termToList tm
+  in
+    if exists (fn x =>
+                   exists (fn y => Term.compare (mk_neg x, y) = EQUAL) tmList)
+                   tmList
+    then
+        F
+    else
+        raise Conv.UNCHANGED
+  end
+
+val tst_find_cont_in_conj_CONV = (
+    find_cont_in_conj_CONV ``x /\ ~x``;
+    find_cont_in_conj_CONV ``x /\ y /\ ~x /\ z``;
+    find_cont_in_conj_CONV ``x /\ y /\ ~x /\ z /\ ~y``;
+    find_cont_in_conj_CONV ``x/\y`` (* UNCHANGED *)
+    )
 val _ = export_theory()
 
